@@ -14,6 +14,9 @@ module.exports = app => {
   });
 
   app.get('/api/current_user', (req, res) => {
+    if (!req.user) {
+      res.send('user not logged in');
+    }
     res.send(req.user);
   });
 };
