@@ -4,6 +4,8 @@ import { connect } from 'react-redux';
 
 import { logoutUser } from '../../actions';
 
+import Payments from '../payment/Payments';
+
 class Header extends Component {
   handleLogout = e => {
     e.preventDefault();
@@ -23,11 +25,19 @@ class Header extends Component {
         );
       default:
         return (
-          <li>
-            <a href="!#" onClick={this.handleLogout}>
-              Logout
-            </a>
-          </li>
+          <>
+            <li>
+              <Payments />
+            </li>
+            <li style={{ margin: '0 0.7rem' }}>
+              Credits: {this.props.auth.credits}
+            </li>
+            <li>
+              <a href="!#" onClick={this.handleLogout}>
+                Logout
+              </a>
+            </li>
+          </>
         );
     }
   };
