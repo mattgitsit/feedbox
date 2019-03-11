@@ -48,7 +48,8 @@ class Header extends Component {
         <div className="nav-wrapper blue darken-1">
           <Link
             to={this.props.auth ? '/surveys' : '/'}
-            className="left brand-logo">
+            className="brand-logo"
+            style={{ marginLeft: '0.6rem' }}>
             Feedbox
           </Link>
           <ul className="right">{this.renderContent()}</ul>
