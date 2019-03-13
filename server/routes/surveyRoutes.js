@@ -1,3 +1,6 @@
+const _ = require('lodash');
+const Path = require('path-parser').default;
+const { URL } = require('url');
 const mongoose = require('mongoose');
 const requireLogin = require('../middlewares/requireLogin');
 const requireCredits = require('../middlewares/requireCredits');
@@ -7,8 +10,61 @@ const surveyTemplate = require('../services/emailTemplates/surveyTemplate');
 const Survey = mongoose.model('surveys');
 
 module.exports = app => {
-  app.get('/api/surveys/thanks', (req, res) => {
+  app.get('/api/surveys', requireLogin, async (req, res) => {
+    const surveys = await Survey.find({ _user: req.user.id }).select({
+      recipients: false
+    }); // select will not include recipients field
+
+    res.send(surveys);
+  });
+
+  app.get('/api/surveys/:surveyID/:choice', (req, res) => {
     res.send('Thanks for voting!');
+  });
+
+  app.post('/api/surveys/webhooks', (req, res) => {
+    const p = new Path('/api/surveys/:surveyID/:choice');
+
+    // const events = req.body.map(({ url, email }) => {
+    //   const match = p.test(new URL(url).pathname);
+
+    //   if (match) {
+    //     return { email, ...match };
+    //   }
+    // });
+
+    // const filteredEvents = events.filter(event => event !== undefined);
+
+    // const uniqueEvents = _.uniqBy(filteredEvents, 'email', 'surveyID');
+
+    _.chain(req.body)
+      .map(({ email, url }) => {
+        const match = p.test(new URL(url).pathname);
+
+        if (match) {
+          return { email, ...match };
+        }
+      })
+      .compact() // filter undefined elements
+      .uniqBy('email', 'surveyID')
+      .each(({ surveyID, email, choice }) => {
+        Survey.updateOne(
+          {
+            _id: surveyID, // _id is id version of mongodb
+            recipients: {
+              $elemMatch: { email: email, responded: false } // $elmeMatch looks for recipients that match the object inside it
+            }
+          },
+          {
+            $inc: { [choice]: 1 }, // $inc increments choice (yes or no) by 1
+            $set: { 'recipients.$.responded': true }, // $set updates value of responded to true, $ is the recipient found by $elemMatch
+            lastResponded: new Date()
+          }
+        ).exec();
+      })
+      .value();
+
+    res.send({});
   });
 
   app.post('/api/surveys', requireLogin, requireCredits, async (req, res) => {
@@ -18,7 +74,9 @@ module.exports = app => {
       title,
       subject,
       body,
-      recipients: recipients.split(',').map(email => ({ email })),
+      recipients: recipients
+        .split(',')
+        .map(email => ({ email, responded: false })),
       _user: req.user.id,
       dateSent: Date.now()
     });
